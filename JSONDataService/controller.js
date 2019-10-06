@@ -1,17 +1,23 @@
 
-const userList = require('./data.json');
 const Joi = require('@hapi/joi');
+const UserSchema = require('./models/user');
+const jsonDBService = require('./services/JSONservice');
+const mongoDBService = require('./services/mongoService');
+
+
+const service = new mongoDBService;
 
 const controller = class Controller {
-
-    //get all users method
-    getAllUsers(req,res) {
-        res.send(userList)
+    
+    //GET ALL users method
+    async getAllUsers(req,res) {
+        return res.status(200).send(await service.getAllUsers());
     }
 
-    //get user method
-    getUser(req,res) {
-        const targetUser = userList.find((user) => user.id == req.params.id);
+    //GET user method
+    async getUser(req,res) {
+        const userList = await service.getAllUsers();
+        const targetUser = userList.find((user) => user._id == req.params.id);
         if(!targetUser) {
             res.status(404).send('Error! There is no such user ...')
             return;
@@ -19,58 +25,50 @@ const controller = class Controller {
         res.send(targetUser)
     }
 
-    //add user method
-    addUser(req,res) {
+    //ADD user method
+    async addUser(req,res) {
+        
+        //validation of req
         const result = validation(req);
         if(result.error){
             res.status(400).send(result.error.details[0].message);
             return;
         };
+        // user shema 
+        const user = new UserSchema({
+            name: req.body.name,
+            age: req.body.age,
+            sex: req.body.sex
+        });
 
-        const newUser = {
-            "id": userList.length + 1,
-            "name": req.body.name,
-            "age": req.body.age,
-            "sex": req.body.sex
-        };
-     
-        userList.push(newUser);
-        res.send(newUser);
+        await service.createUser(user);
+        res.send('User was created!');
     }
 
-    //update user method
-    updateUser(req,res) {
-        const targetUser = userList.find((user) => user.id == req.params.id);
+    //UPDATE user method
+    async updateUser(req,res) {
 
-        if(!targetUser) {
-            res.status(404).send('Error! There is no such user ...')
-            return;
-        };
-
+        //validation of request
         const result = validation(req);
         if(result.error){
             res.status(400).send(result.error.details[0].message);
             return;
         };
-
-        targetUser.name = req.body.name;
-        targetUser.age = req.body.age;
-        targetUser.sex = req.body.sex;
-
-        res.send(targetUser)
+    
+        const userList = await service.getAllUsers();
+        const updUser = await service.updateUser(req.params.id, req.body, userList)
+        if (updUser) {
+        res.send('User was updated!')
+        }
     }
-    //delete user method
-    deleteUser(req,res) {
-        const targetUser = userList.find((user) => user.id == req.params.id);
 
-        if(!targetUser) {
-            res.status(404).send('Error! There is no such user ...')
-            return;
-        };
+    //DELETE user method
+    async deleteUser(req,res) {
 
-        const index = userList.indexOf(targetUser);
-        userList.splice(index,1)
-        res.send(targetUser)
+        const userList = await service.getAllUsers();
+        const id = req.params.id
+        res.send(await service.deleteUser(id, userList))
+
     }
 };
 
